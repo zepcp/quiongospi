@@ -116,7 +116,7 @@ def party(uid, game):
     invites = len(game.roles) if strings.LAST_DAY_ROLE[0] not in game.roles else len(game.roles) - 1
     accepted = db.Guest.select().where(db.Guest.game_id == game.id).count()
 
-    if accepted < invites - 1 or accepted <= 5:
+    if accepted < invites - 1 or accepted < 2:
         telegram.send_message(strings.CANT_PARTY, uid, bot="bebot")
         return
 
@@ -293,7 +293,7 @@ def share_response(uid, text):
 
     share = share.get()
 
-    if text == "/reject":
+    if text[:8] == "/reject_":
         telegram.send_message(strings.REJECTED, share.from_id, bot="bebot")
         db.Share.delete().where(db.Share.id == share.id).execute()
         return
@@ -353,9 +353,14 @@ def hostages(uid, text, game):
         return
 
     hostage = text[9:]
-    db.Guest.update(room=True if db.Guest.room == False else False,
-                   ).where(db.Guest.game_id == game.id,
-                           db.Guest.player == hostage).execute()
+    room = db.Guest.select().where(db.Guest.game_id == game.id,
+                                   db.Guest.player == hostage)
+
+    if room:
+        room = False if room.get().room else True
+        db.Guest.update(room=room,
+                       ).where(db.Guest.game_id == game.id,
+                               db.Guest.player == hostage).execute()
     return
 
 def last(uid, game):
@@ -371,6 +376,9 @@ def last(uid, game):
 
         player = db.Guest.select().where(db.Guest.game_id == game.id,
                                          db.Guest.role == strings.LAST_DAY_ROLE[0]).get()
+
+        db.Guest.update(role=role).where(db.Guest.game_id == game.id,
+                                         db.Guest.player_id == player.player_id).execute()
 
         _, sticker, _ = card_details(role)
         telegram.send_sticker(sticker, player.player_id, bot="bebot")
