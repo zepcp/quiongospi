@@ -1,0 +1,10 @@
+peewee
+Flask
+flask-restplus
+gunicorn
+gevent
+psycopg2
+redis
+celery
+requests
+unidecode
