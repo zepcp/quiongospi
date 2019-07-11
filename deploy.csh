@@ -12,8 +12,9 @@ if ("$result" == "Already up-to-date.") then
     echo `date`" - "$result
 else
     echo `date`" - Restarting supervisor"
-    sudo supervisorctl reread
+    sudo service nginx restart
     sudo service supervisor restart
+    crontab cron
 endif
 
 echo `date`" - Script finished successfully"
