@@ -41,7 +41,7 @@ class TakePic(Resource):
             abort(code=503, error="ERROR-503-1", status=None,
                   message="TakePic Service Unavailable At This Moment")
 
-        return send_file(settings.HOME_DIR+timestamp+'.jpg')
+        return send_file(settings.PIC_DIR+timestamp+'.jpg')
 
 @API.route("/receivemail")
 class ReceiveMail(Resource):

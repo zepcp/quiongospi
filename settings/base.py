@@ -11,7 +11,7 @@ API_PORT = 5000
 DEBUG = False
 
 # Directories
-HOME_DIR = os.path.join("/home", "pi", "Desktop", "quiongos", "pi")
+PIC_DIR = os.path.join("/home", "pi", "Desktop", "pics")
 
 # Datetime Formats
 DATETIME = "%Y-%m-%d %H:%M:%S"

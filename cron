@@ -1,0 +1,5 @@
+#raspberryPI cronjobs
+SHELL=/bin/bash
+
+#Hourly pull https://github.com/zepcp/quiongospi repository
+0 * * * * /home/pi/Documents/quiongospi/deploy.csh 2>&1 >> /var/log/cron.log
