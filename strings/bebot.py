@@ -65,7 +65,7 @@ Which wedding do you wish to /join ? %s
 
 JOINED = """
 You joined the wedding
-Current guestlist: %s
+Current /guestlist: %s
 """
 
 LEAVE = """
@@ -98,6 +98,7 @@ Wedding /guestlist
 Days: %d
 Hostages: %s
 Your starting room: %d
+You can /share your card
 """
 
 INVALID_LAST = """
@@ -176,8 +177,7 @@ Your available options are:
 /guests_groom - /groom guest options
 /guests_bride - /bride guest options
 /guests_neutral - Neutral guest options
-/guests_short - No /guests details
-/share_role - Share your role
+/share - Share your role
 /share_team - Share your team
 /hostages - Exchange hostages
 /last - Warn %s about his role
@@ -186,10 +186,14 @@ Your available options are:
 /help - Help from the Groom Bot
 """ % LAST_DAY_ROLE
 #/guests_name - Real /guests name
+#/guests_short - No /guests details
 #/yes - Share has to be mutual
 #/no - No need to share back
 #/accept - Accept a share request
 #/reject - Reject a share request
+#/root_clean_games
+#/root_clean_shares
+#/root_clean_answers
 
 RULES = """
 You have the wedding /guests evenly split between two rooms

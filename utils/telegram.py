@@ -1,64 +1,52 @@
+"""Telegram utils"""
+import os
+import requests
+
 import settings
 
-import requests
-import os
+class BOT():
+    """Telegram bot class, get and send info"""
+    def __init__(self, bot="bebot"):
+        self.base_url = settings.ZOMICBOT_URL if bot.lower() == "zomicbot" \
+                        else settings.BEBOT_URL if bot.lower() == "bebot" \
+                        else None
 
-def get_url(bot):
-    if bot.lower() == "zomicbot":
-        return settings.ZOMICBOT_URL
-    if bot.lower() == "bebot":
-        return settings.BEBOT_URL
-    return None
+    def get_url(self, params=None):
+        """Get Telegram URL"""
+        if not params:
+            return os.path.join(self.base_url, "getUpdates")
+        query = "sendSticker" if "sticker" in params else \
+               "sendPhoto" if "photo" in params else "sendMessage"
+        return os.path.join(self.base_url, query)
 
-def send_sticker(file_id, chat_id, bot="zomicbot"):
-    url = os.path.join(get_url(bot),
-                       "sendSticker")
-    params = {"sticker": file_id,
-              "chat_id": chat_id}
+    @staticmethod
+    def get_params(chat, text=None, sticker=None, photo=None):
+        """Parse sent info as params"""
+        params = {"chat_id": chat}
+        if sticker:
+            params["sticker"] = sticker
+        elif photo:
+            params["photo"] = photo
+            params["caption"] = text
+        elif text:
+            params["text"] = text
+        return params
 
-    res = requests.get(url, params=params)
+    def send(self, chat, text=None, sticker=None, photo=None):
+        """Send info to telegram chat"""
+        params = self.get_params(chat, text, sticker, photo)
+        res = requests.get(self.get_url(params), params=params)
+        #Cant send sticker and photo simultaneously
+        if sticker and photo:
+            params = self.get_params(chat, text, photo=photo)
+            res = requests.get(self.get_url(params), params=params)
+        #Cant send sticker and text simultaneously
+        elif sticker and text:
+            params = self.get_params(chat, text)
+            res = requests.get(self.get_url(params), params=params)
+        return res.json()["ok"] if res.status_code == 200 else False
 
-    if res.status_code == 200:
-        return res.json()['ok']
-    return False
-
-def send_photo(file_id, chat_id, caption=None, bot="zomicbot"):
-    url = os.path.join(get_url(bot),
-                       "sendPhoto")
-    params = {"photo": file_id,
-              "chat_id": chat_id,
-              "caption": caption}
-
-    res = requests.get(url, params=params)
-
-    if res.status_code == 200:
-        return res.json()['ok']
-    return False
-
-def send_message(text, chat_id, bot="zomicbot"):
-    url = os.path.join(get_url(bot),
-                       "sendMessage")
-    params = {"text": text,
-              "chat_id": chat_id}
-
-    res = requests.get(url, params=params)
-
-    if res.status_code == 200:
-        return res.json()['ok']
-    return False
-
-def get_messages(offset = 0, bot="zomicbot"):
-    url = os.path.join(get_url(bot),
-                       "getUpdates")
-    res = requests.get(url, params={"offset": offset})
-
-    if res.status_code == 200:
-        return res.json()["result"]
-    return False
-
-def get_last_chat_id_and_text(updates):
-    num_updates = len(updates["result"])
-    last_update = num_updates - 1
-    text = updates["result"][last_update]["message"]["text"]
-    chat_id = updates["result"][last_update]["message"]["chat"]["id"]
-    return (text, chat_id)
+    def get(self, offset=0):
+        """Receive info sent to telegram bot"""
+        res = requests.get(self.get_url(), params={"offset": offset})
+        return res.json()["result"] if res.status_code == 200 else False

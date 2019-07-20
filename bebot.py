@@ -5,7 +5,7 @@ import logging
 import peewee
 
 import settings
-from utils import telegram
+from utils.telegram import BOT
 from db import bebot as db
 from strings import bebot as strings
 
@@ -17,6 +17,8 @@ logging.basicConfig(level=logging.INFO,
 
 if settings.DEBUG:
     LOGGER.setLevel(logging.DEBUG)
+
+BEBOT = BOT()
 
 def list_cards(groom=True, bride=True, neutral=True, name=False):
     cards = []
@@ -54,18 +56,18 @@ def room_distribution(game_id):
 
 def new(uid, game, username):
     if game:
-        telegram.send_message(strings.ALREADY_NEW, uid, bot="bebot")
+        BEBOT.send(uid, strings.ALREADY_NEW)
         return
 
     game = db.Game.create(owner_id=uid, owner=username)
     db.Guest.create(game_id=game.id, player_id=uid, player=username)
-    telegram.send_message(strings.NEW, uid, bot="bebot")
+    BEBOT.send(uid, strings.NEW)
 
 def guestlist(uid, text, game):
     if not game:
         gamelist = db.Game.select()
         if not gamelist.exists():
-            telegram.send_message(strings.NO_WEDDING_AVAILABLE, uid, bot="bebot")
+            BEBOT.send(uid, strings.NO_WEDDING_AVAILABLE)
             return
 
         games_msg = ""
@@ -75,49 +77,48 @@ def guestlist(uid, text, game):
             games_msg += "\n/guestlist_"+game.owner
 
         if text != "/guestlist_"+game.owner:
-            telegram.send_message(strings.WHICH_GUESTLIST % games_msg, uid, bot="bebot")
+            BEBOT.send(uid, strings.WHICH_GUESTLIST % games_msg)
             return
 
     invites = len(game.roles) if strings.LAST_DAY_ROLE[0] not in game.roles else len(game.roles) - 1
     accepted = db.Guest.select().where(db.Guest.game_id == game.id).count()
     room_0, room_1 = room_distribution(game.id)
-    msg = strings.GUESTLIST % (invites, accepted, game.roles, room_0, room_1)
-    telegram.send_message(msg, uid, bot="bebot")
+    BEBOT.send(uid, strings.GUESTLIST % (invites, accepted, game.roles, room_0, room_1))
 
 def add(text, game):
     if text not in game.roles:
         db.Game.update(roles=peewee.fn.array_append(db.Game.roles, text)
                       ).where(db.Game.id == game.id).execute()
-        telegram.send_message(strings.ADDED % text, game.owner_id, bot="bebot")
+        BEBOT.send(game.owner_id, strings.ADDED % text)
         return
     db.Game.update(roles=peewee.fn.array_remove(db.Game.roles, text)
                   ).where(db.Game.id == game.id).execute()
-    telegram.send_message(strings.REMOVED % text, game.owner_id, bot="bebot")
+    BEBOT.send(game.owner_id, strings.REMOVED % text)
 
 def delete(uid, game):
     if not game:
-        telegram.send_message(strings.NO_WEDDING_PLANNED, uid, bot="bebot")
+        BEBOT.send(uid, strings.NO_WEDDING_PLANNED)
         return
 
     db.Game.delete().where(db.Game.id == game.id).execute()
     db.Guest.delete().where(db.Guest.game_id == game.id).execute()
     db.Share.delete().where(db.Share.game_id == game.id).execute()
-    telegram.send_message(strings.DELETED, uid, bot="bebot")
+    BEBOT.send(uid, strings.DELETED)
 
 def party(uid, game):
     if not game:
-        telegram.send_message(strings.NO_WEDDING_PLANNED, uid, bot="bebot")
+        BEBOT.send(uid, strings.NO_WEDDING_PLANNED)
         return
 
     if game.days:
-        telegram.send_message(strings.ALREADY_PARTYING, uid, bot="bebot")
+        BEBOT.send(uid, strings.ALREADY_PARTYING)
         return
 
     invites = len(game.roles) if strings.LAST_DAY_ROLE[0] not in game.roles else len(game.roles) - 1
     accepted = db.Guest.select().where(db.Guest.game_id == game.id).count()
 
     if accepted < invites - 1 or accepted < 2:
-        telegram.send_message(strings.CANT_PARTY, uid, bot="bebot")
+        BEBOT.send(uid, strings.CANT_PARTY)
         return
 
     days = 3 if accepted <= 10 else 5
@@ -148,28 +149,25 @@ def party(uid, game):
         _, sticker, team = card_details(role)
 
         party_msg = strings.PARTY_DETAILS % (days, hostages, starting_room)
-        telegram.send_sticker(sticker, guest.player_id, bot="bebot")
-        if team_card:
-            telegram.send_sticker(team, guest.player_id, bot="bebot")
-        telegram.send_message(party_msg, guest.player_id, bot="bebot")
+        BEBOT.send(guest.player_id, party_msg, sticker)
 
 def join(uid, text, username):
     if text == "/join":
         available = db.Game.select().where(db.Game.days == None)
         if not available.exists():
-            telegram.send_message(strings.NO_WEDDING_AVAILABLE, uid, bot="bebot")
+            BEBOT.send(uid, strings.NO_WEDDING_AVAILABLE)
             return
 
         join_msg = ""
         for game in available:
             join_msg += "\n/join_"+game.owner
 
-        telegram.send_message(strings.JOIN % join_msg, uid, bot="bebot")
+        BEBOT.send(uid, strings.JOIN % join_msg)
         return
 
     game = db.Game.select().where(db.Game.owner == text[6:], db.Game.days == None)
     if not game.exists():
-        telegram.send_message(strings.GUESTLIST_FULL, uid, bot="bebot")
+        BEBOT.send(uid, strings.GUESTLIST_FULL)
         return
 
     game = game.get()
@@ -178,24 +176,24 @@ def join(uid, text, username):
                                db.Guest.player_id == uid).exists():
         db.Guest.delete().where(db.Guest.game_id == game.id,
                                 db.Guest.player_id == uid).execute()
-        telegram.send_message(strings.LEAVE, uid, bot="bebot")
+        BEBOT.send(uid, strings.LEAVE)
         return
 
     invites = len(game.roles) if strings.LAST_DAY_ROLE[0] not in game.roles else len(game.roles) - 1
     accepted = db.Guest.select().where(db.Guest.game_id == game.id).count()
     if invites == accepted:
-        telegram.send_message(strings.GUESTLIST_FULL, uid, bot="bebot")
+        BEBOT.send(uid, strings.GUESTLIST_FULL)
         return
 
     db.Guest.create(game_id=game.id, player_id=uid, player=username)
-    telegram.send_message(strings.JOINED % game.roles, uid, bot="bebot")
+    BEBOT.send(uid, strings.JOINED % game.roles)
     return
 
 def share(uid, text):
     guest = db.Guest.select().where(db.Guest.player_id == uid,
                                     db.Guest.role != None)
     if not guest.exists():
-        telegram.send_message(strings.INVALID_SHARE, uid, bot="bebot")
+        BEBOT.send(uid, strings.INVALID_SHARE)
         return
 
     guest = guest.get()
@@ -216,13 +214,13 @@ def share(uid, text):
                         role=role).where(db.Share.game_id == guest.game_id,
                                          db.Share.from_id == uid,
                                          db.Share.to_id == None).execute()
-    telegram.send_message(strings.SHARE_WITH % share_msg, uid, bot="bebot")
+    BEBOT.send(uid, strings.SHARE_WITH % share_msg)
 
 def share_with(uid, text):
     share = db.Share.select().where(db.Share.from_id == uid,
                                     db.Share.to_id == None)
     if not share.exists():
-        telegram.send_message(strings.INVALID_WITH, uid, bot="bebot")
+        BEBOT.send(uid, strings.INVALID_WITH)
         return
 
     share = share.get()
@@ -237,9 +235,9 @@ def share_with(uid, text):
         if guest.player == text[6:]:
             db.Share.update(to_id=guest.player_id).where(db.Share.id == share.id
                                                         ).execute()
-            telegram.send_message(strings.MUTUAL, uid, bot="bebot")
+            BEBOT.send(uid, strings.MUTUAL)
             return
-    telegram.send_message(strings.INVALID_WITH, uid, bot="bebot")
+    BEBOT.send(uid, strings.INVALID_WITH)
     return
 
 def share_back(uid, text):
@@ -247,7 +245,7 @@ def share_back(uid, text):
                                     db.Share.to_id != None
                                     ).order_by(db.Share.date.desc())
     if not share.exists():
-        telegram.send_message(strings.INVALID_WITH, uid, bot="bebot")
+        BEBOT.send(uid, strings.INVALID_WITH)
         return
 
     share = share.get()
@@ -259,8 +257,7 @@ def share_back(uid, text):
         _, role_sticker, team_sticker = card_details(player1.role)
         sticker = role_sticker if share.role else team_sticker
 
-        telegram.send_message(strings.RECEIVED % (player1.player), share.to_id, bot="bebot")
-        telegram.send_sticker(sticker, share.to_id, bot="bebot")
+        BEBOT.send(share.to_id, strings.RECEIVED % player1.player, sticker)
         db.Share.delete().where(db.Share.id == share.id).execute()
         return
 
@@ -273,14 +270,13 @@ def share_back(uid, text):
             return
 
     share_type = "/share_role" if share.role else "/share_team"
-    telegram.send_message(strings.ACCEPT % (share_type, player1.player, player1.player),
-                          share.to_id, bot="bebot")
+    BEBOT.send(share.to_id, strings.ACCEPT % (share_type, player1.player, player1.player))
     return
 
 def share_response(uid, text):
     inviter = db.Guest.select().where(db.Guest.player == text[8:])
     if not inviter.exists():
-        telegram.send_message(strings.INVALID_MUTUAL, uid, bot="bebot")
+        BEBOT.send(uid, strings.INVALID_MUTUAL)
         return
 
     inviter = inviter.get()
@@ -288,13 +284,13 @@ def share_response(uid, text):
                                     db.Share.from_id == inviter.player_id
                                    ).order_by(db.Share.date.desc())
     if not share.exists():
-        telegram.send_message(strings.INVALID_MUTUAL, uid, bot="bebot")
+        BEBOT.send(uid, strings.INVALID_MUTUAL)
         return
 
     share = share.get()
 
     if text[:8] == "/reject_":
-        telegram.send_message(strings.REJECTED, share.from_id, bot="bebot")
+        BEBOT.send(share.from_id, strings.REJECTED)
         db.Share.delete().where(db.Share.id == share.id).execute()
         return
 
@@ -312,29 +308,25 @@ def share_response(uid, text):
 
     if share.role:
         if player1.role in strings.SWAPPABLE_ROLE or player2.role in strings.SWAPPABLE_ROLE:
-            telegram.send_message(strings.GOT_SWAPPED, player1.player_id, bot="bebot")
-            telegram.send_sticker(sticker2, player1.player_id, bot="bebot")
-            telegram.send_message(strings.GOT_SWAPPED, player2.player_id, bot="bebot")
-            telegram.send_sticker(sticker1, player2.player_id, bot="bebot")
+            BEBOT.send(player1.player_id, strings.GOT_SWAPPED, sticker2)
+            BEBOT.send(player2.player_id, strings.GOT_SWAPPED, sticker1)
             db.Guest.update(role=player1.role).where(db.Guest.id == player2.id).execute()
             db.Guest.update(role=player2.role).where(db.Guest.id == player1.id).execute()
             db.Share.delete().where(db.Share.id == share.id).execute()
             return
 
-    telegram.send_message(strings.SHARED % (player2.player), player1.player_id, bot="bebot")
-    telegram.send_sticker(sticker2, player1.player_id, bot="bebot")
-    telegram.send_message(strings.SHARED % (player1.player), player2.player_id, bot="bebot")
-    telegram.send_sticker(sticker1, player2.player_id, bot="bebot")
+    BEBOT.send(player1.player_id, strings.SHARED % (player2.player), sticker2)
+    BEBOT.send(player2.player_id, strings.SHARED % (player1.player), sticker1)
     db.Share.delete().where(db.Share.id == share.id).execute()
     return
 
 def hostages(uid, text, game):
     if not game:
-        telegram.send_message(strings.NO_WEDDING_PLANNED, uid, bot="bebot")
+        BEBOT.send(uid, strings.NO_WEDDING_PLANNED)
         return
 
     if not game.days:
-        telegram.send_message(strings.NO_HOSTAGES, uid, bot="bebot")
+        BEBOT.send(uid, strings.NO_HOSTAGES)
         return
 
     if text == "/hostages":
@@ -344,12 +336,12 @@ def hostages(uid, text, game):
         msg_hostages = "0:"
         for hostage in room_0:
             msg_hostages += "\n/hostage_"+hostage
-        telegram.send_message(strings.HOSTAGES % msg_hostages, game.owner_id, bot="bebot")
+        BEBOT.send(game.owner_id, strings.NO_HOSTAGES % msg_hostages)
 
         msg_hostages = "1:"
         for hostage in room_1:
             msg_hostages += "\n/hostage_"+hostage
-        telegram.send_message(strings.HOSTAGES % msg_hostages, game.owner_id, bot="bebot")
+        BEBOT.send(game.owner_id, strings.NO_HOSTAGES % msg_hostages)
         return
 
     hostage = text[9:]
@@ -366,7 +358,7 @@ def hostages(uid, text, game):
 def last(uid, game):
     if game:
         if strings.LAST_DAY_ROLE[0] not in game.roles:
-            telegram.send_message(strings.INVALID_LAST, uid, bot="bebot")
+            BEBOT.send(uid, strings.INVALID_LAST)
             return
 
         for role in game.roles:
@@ -381,7 +373,7 @@ def last(uid, game):
                                          db.Guest.player_id == player.player_id).execute()
 
         _, sticker, _ = card_details(role)
-        telegram.send_sticker(sticker, player.player_id, bot="bebot")
+        BEBOT.send(player.player_id, sticker=sticker)
         return
 
     last_day_role = db.Guest.select().where(db.Guest.player_id == uid
@@ -391,57 +383,110 @@ def last(uid, game):
         last_day_role = last_day_role.get()
         if last_day_role.role in strings.LAST_DAY_ROLE:
             game = db.Game.select().where(db.Game.id == last_day_role.game_id).get()
-            telegram.send_message(strings.LAST, game.owner_id, bot="bebot")
+            BEBOT.send(game.owner_id, strings.LAST)
             return
 
-    telegram.send_message(strings.INVALID_LAST, uid, bot="bebot")
+    BEBOT.send(uid, strings.INVALID_LAST)
     return
 
 def root(uid, text):
-    if uid == 546114127 and text == "/root_clean_all":
+    if uid == 546114127 and text == "/root_clean_games":
         db.Game.delete().execute()
         db.Guest.delete().execute()
         db.Share.delete().execute()
+        return
+    if uid == 546114127 and text == "/root_clean_answers":
+        db.Response.delete().execute()
         return
     if uid == 546114127 and text == "/root_clean_shares":
         db.Share.delete().execute()
         return
     return
 
+def quiz(uid, username, question, answer):
+    last_response = db.Response.select().order_by(db.Response.question.desc())
+    if last_response.exists():
+        if last_response.get().question > question:
+            BEBOT.send(uid, "Sorry we are already on question %d" % last_response.get().question)
+            return
+
+        if last_response.get().question < question + 1:
+            BEBOT.send(uid, "Sorry we are still on question %d" % last_response.get().question)
+            return
+    else:
+        if question != 1:
+            BEBOT.send(uid, "Sorry we are still on question 1")
+            return
+
+    already_answered = db.Response.select().where(db.Response.question == question,
+                                                  db.Response.player_id == uid)
+    if already_answered.exists():
+        BEBOT.send(uid, "Sorry you have already answered this question")
+        return
+
+    db.Response.create(question=question, player_id=uid, player=username, response=answer)
+    BEBOT.send(uid, "Your answer has been registered")
+    return
+
+def quiz_result():
+    players = db.Response.select().distinct(db.Response.player_id)
+
+    winner = []
+    win_points = 0
+    for player in players:
+        responses = db.Response.select().where(db.Response.player_id == player.player_id)
+        result = 0
+        correct = []
+        for each in responses:
+            question = db.Quiz.select().where(db.Quiz.id == each.question).get()
+            if question.answer == each.response:
+                result += 1
+                correct.append(each.question)
+        BEBOT.send(player.player_id, "Your quiz result was %d" % result)
+        BEBOT.send(player.player_id, "Your correct answers were: %s" % str(correct)[1:-1])
+        if result > win_points:
+            winner = [each.player]
+            win_points = result
+        elif result == win_points:
+            winner.append(each.player)
+
+    for player in players:
+        BEBOT.send(player.player_id, "Winner was %s with %d" % (str(winner)[1:-1], win_points))
+    return
+
 def process_msg(uid, text, game, username):
     if text == "/start":
-        telegram.send_sticker(strings.START_STICKER, uid, bot="bebot")
-        telegram.send_message(strings.START, uid, bot="bebot")
+        BEBOT.send(uid, strings.START, strings.START_STICKER)
 
     elif text == "/help":
-        telegram.send_message(strings.HELP, uid, bot="bebot")
+        BEBOT.send(uid, strings.HELP)
 
     elif text == "/rules":
-        telegram.send_message(strings.RULES, uid, bot="bebot")
+        BEBOT.send(uid, strings.RULES)
 
     elif text == "/guests":
-        telegram.send_message(list_cards(), uid, bot="bebot")
+        BEBOT.send(uid, list_cards())
 
     elif text == "/guests_groom":
-        telegram.send_message(list_cards(bride=False, neutral=False), uid, bot="bebot")
+        BEBOT.send(uid, list_cards(bride=False, neutral=False))
 
     elif text == "/guests_bride":
-        telegram.send_message(list_cards(groom=False, neutral=False), uid, bot="bebot")
+        BEBOT.send(uid, list_cards(groom=False, neutral=False))
 
     elif text == "/guests_neutral":
-        telegram.send_message(list_cards(groom=False, bride=False), uid, bot="bebot")
+        BEBOT.send(uid, list_cards(groom=False, bride=False))
 
     elif text == "/guests_short":
-        telegram.send_message(str(list(strings.CHARACTERS)), uid, bot="bebot")
+        BEBOT.send(uid, str(list(strings.CHARACTERS)))
 
     elif text == "/guests_name":
-        telegram.send_message(list_cards(name=True), uid, bot="bebot")
+        BEBOT.send(uid, list_cards(name=True))
 
     elif text[:9] == "/template":
         if text in strings.TEMPLATES:
-            telegram.send_message(str(strings.TEMPLATES[text]["roles"]), uid, bot="bebot")
+            BEBOT.send(uid, str(strings.TEMPLATES[text]["roles"]))
         else:
-            telegram.send_message(str(list(strings.TEMPLATES)), uid, bot="bebot")
+            BEBOT.send(uid, str(list(strings.TEMPLATES)))
 
     elif text == "/new":
         new(uid, game, username)
@@ -452,7 +497,7 @@ def process_msg(uid, text, game, username):
     elif text in strings.CHARACTERS:
         if not game or game.days:
             _, sticker, _ = card_details(text)
-            telegram.send_sticker(sticker, uid, bot="bebot")
+            BEBOT.send(uid, sticker=sticker)
             return
         add(text, game)
 
@@ -486,9 +531,23 @@ def process_msg(uid, text, game, username):
     elif text[:5] == "/root":
         root(uid, text)
 
+    elif text == "/quiz_result":
+        quiz_result()
+
     else:
-        LOGGER.error('COULDNT UNDERSTAND %s', text)
-        telegram.send_message(strings.BAD_REQUEST, uid, bot="bebot")
+        try:
+            question = int(text[1:-1])
+            answer = text[-1]
+
+            if answer in ("a", "b", "c") and 0 < question < 26:
+                quiz(uid, username, question, answer)
+                return
+            LOGGER.error('COULDNT UNDERSTAND %s', text)
+            BEBOT.send(uid, strings.BAD_REQUEST)
+        except:
+            LOGGER.error('COULDNT UNDERSTAND %s', text)
+            BEBOT.send(uid, strings.BAD_REQUEST)
+            return
 
 def last_msg():
     last_msg = db.Log.select(peewee.fn.MAX(db.Log.update_id)).get().max
@@ -505,7 +564,7 @@ if __name__ == "__main__":
     STARTED = time.time()
     UPDATE_ID = 0
     while True:
-        for msg in telegram.get_messages(UPDATE_ID, bot="bebot"):
+        for msg in BEBOT.get(UPDATE_ID):
             if STARTED > msg["message"]["date"]:
                 continue
             UPDATE_ID = msg["update_id"]

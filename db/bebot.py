@@ -58,12 +58,57 @@ class Share(BaseModel):
     class Meta:
         db_table = "shares"
 
+class Quiz(BaseModel):
+    answer = peewee.CharField(max_length=1)
+    date = peewee.IntegerField(default=int(time.time()))
+
+    class Meta:
+        db_table = "quiz"
+
+class Response(BaseModel):
+    question = peewee.IntegerField()
+    player_id = peewee.IntegerField()
+    player = peewee.CharField(max_length=20)
+    response = peewee.CharField(max_length=1)
+    date = peewee.IntegerField(default=int(time.time()))
+
+    class Meta:
+        db_table = "responses"
+
 #db.drop_tables([Log], safe=True)
 #db.drop_tables([Game], safe=True)
 #db.drop_tables([Guest], safe=True)
 #db.drop_tables([Share], safe=True)
+db.drop_tables([Quiz], safe=True)
+db.drop_tables([Response], safe=True)
 
 db.create_tables([Log], safe=True)
 db.create_tables([Game], safe=True)
 db.create_tables([Guest], safe=True)
 db.create_tables([Share], safe=True)
+db.create_tables([Quiz], safe=True)
+db.create_tables([Response], safe=True)
+
+Quiz.create(answer="a") #Q1
+Quiz.create(answer="a") #Q2
+Quiz.create(answer="a") #Q3
+Quiz.create(answer="a") #Q4
+Quiz.create(answer="a") #Q5
+Quiz.create(answer="a") #Q6
+Quiz.create(answer="a") #Q7
+Quiz.create(answer="a") #Q8
+Quiz.create(answer="a") #Q9
+Quiz.create(answer="a") #Q10
+Quiz.create(answer="a") #Q11
+Quiz.create(answer="a") #Q12
+Quiz.create(answer="a") #Q13
+Quiz.create(answer="a") #Q14
+Quiz.create(answer="a") #Q15
+Quiz.create(answer="a") #Q16
+Quiz.create(answer="a") #Q17
+Quiz.create(answer="a") #Q18
+Quiz.create(answer="a") #Q19
+Quiz.create(answer="a") #Q20
+Quiz.create(answer="a") #Q21
+Quiz.create(answer="a") #Q22
+Quiz.create(answer="a") #Q23

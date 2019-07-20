@@ -3,7 +3,7 @@ import time
 from peewee import fn
 
 import settings
-from utils import telegram
+from utils.telegram import BOT
 from utils import types
 from db import zomic as db
 from strings import zomic as strings
@@ -16,6 +16,8 @@ logging.basicConfig(level=logging.INFO,
 
 if settings.DEBUG:
     logger.setLevel(logging.DEBUG)
+
+ZOMICBOT = BOT(bot="zomicbot")
 
 def last_msg():
     last_msg = db.Telegram.select(fn.MAX(db.Telegram.update_id)).get().max
@@ -40,7 +42,7 @@ def update_info(user, info):
         try:
             email = types.email(info)
         except Exception as exception:
-            telegram.send_message(strings.BAD_REQUEST, user)
+            ZOMICBOT.send(user, strings.BAD_REQUEST)
             return False
 
     if wallet:
@@ -53,11 +55,11 @@ def update_info(user, info):
                                              db.Members,
                                              chat_id=user)).execute()
 
-    return telegram.send_message(strings.SUCCESS, user)
+    return ZOMICBOT.send(user, strings.SUCCESS)
 
 def propose(user, description):
     if description == "":
-        telegram.send_message(strings.NOT_FOUND, user)
+        ZOMICBOT.send(user, strings.NOT_FOUND)
         return False
 
     if db.Proposals.select().where(db.get_where_condition(
@@ -66,13 +68,13 @@ def propose(user, description):
                                    chat_id = user,
                                    active = True,
                                    username = None)).count() > 0:
-        telegram.send_message(strings.CONFLICT, user)
+        ZOMICBOT.send(user, strings.CONFLICT)
         return False
 
     db.Proposals.create(genesis = genesis(),
                         chat_id = user,
                         description = description)
-    return telegram.send_message(strings.SUCCESS, user)
+    return ZOMICBOT.send(user, strings.SUCCESS)
 
 def invite(user, info):
     try:
@@ -88,16 +90,16 @@ def invite(user, info):
                                        chat_id = user,
                                        active = True,
                                        username_exists = True)).count() > 0:
-            telegram.send_message(strings.CONFLICT, user)
+            return ZOMICBOT.send(user, strings.CONFLICT)
             return False
 
         db.Proposals.create(genesis = genesis(),
                             chat_id = user,
                             username = username,
                             description = " ".join(description))
-        return telegram.send_message(strings.SUCCESS, user)
+        return ZOMICBOT.send(user, strings.SUCCESS)
     except:
-        telegram.send_message(strings.BAD_REQUEST, user)
+        ZOMICBOT.send(user, strings.BAD_REQUEST)
         return False
 
 def vote(user, info):
@@ -110,23 +112,23 @@ def vote(user, info):
                                        db.Proposals,
                                        id = vote_id,
                                        active = True)).count() == 0:
-            telegram.send_message(strings.NOT_FOUND, user)
+            ZOMICBOT.send(user, strings.NOT_FOUND)
             return False
 
         if db.Votes.select().where(db.get_where_condition(
                                    db.Votes,
                                    chat_id = user,
                                    proposal = vote_id)).count() > 0:
-            telegram.send_message(strings.CONFLICT, user)
+            ZOMICBOT.send(user, strings.CONFLICT)
             return False
 
         db.Votes.create(chat_id = user,
                         proposal = vote_id,
                         vote = vote_number(vote.lower()))
 
-        return telegram.send_message(strings.SUCCESS, user)
+        return ZOMICBOT.send(user, strings.SUCCESS)
     except:
-        telegram.send_message(strings.BAD_REQUEST, user)
+        ZOMICBOT.send(user, strings.BAD_REQUEST)
         return False
 
 def quit(user, wallet = None):
@@ -134,8 +136,8 @@ def quit(user, wallet = None):
         try:
             wallet = types.wallet(wallet)
         except Exception as exception:
-            telegram.send_message(exception, user)
-            telegram.send_message(strings.RAGE_QUIT, user)
+            ZOMICBOT.send(user, exception)
+            ZOMICBOT.send(user, strings.RAGE_QUIT)
             return False
 
     db.Members.update(active=False).where(db.get_where_condition(
@@ -143,16 +145,16 @@ def quit(user, wallet = None):
                                           chat_id=user)).execute()
     # /quit
     if wallet:
-        telegram.send_message(strings.QUIT % wallet, user)
+        ZOMICBOT.send(user, strings.QUIT % wallet)
     # /rage_quit
     else:
-        telegram.send_message(strings.QUIT.split("\n")[0], user)
+        ZOMICBOT.send(user, strings.QUIT.split("\n")[0])
 
-    return telegram.send_message(strings.SUCCESS, user)
+    return ZOMICBOT.send(user, strings.SUCCESS)
 
 def process_msg(user, text):
     if text == "/start":
-        telegram.send_message(strings.START, user)
+        ZOMICBOT.send(user, strings.START)
 
     elif text[0:7] == "/update":
         update_info(user, text[8:])
@@ -187,7 +189,7 @@ if __name__ == "__main__":
     last_msg = last_msg()
     update_id = 0
     while True:
-        for msg in telegram.get_messages(update_id):
+        for msg in ZOMICBOT.get(update_id):
             update_id = msg["update_id"]
             try:
                 user = msg["message"]["from"]["id"]
@@ -230,7 +232,7 @@ if __name__ == "__main__":
                                              db.Members,
                                              chat_id=user,
                                              active=True)):
-                telegram.send_message(strings.NOT_MEMBER, user)
+                ZOMICBOT.send(user, strings.NOT_MEMBER)
             else:
                 process_msg(user, text)
 
