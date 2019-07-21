@@ -410,7 +410,7 @@ def quiz(uid, username, question, answer):
             BEBOT.send(uid, "Sorry we are already on question %d" % last_response.get().question)
             return
 
-        if last_response.get().question < question + 1:
+        if last_response.get().question + 1 < question:
             BEBOT.send(uid, "Sorry we are still on question %d" % last_response.get().question)
             return
     else:
