@@ -565,7 +565,16 @@ if __name__ == "__main__":
     UPDATE_ID = 0
     while True:
         for msg in BEBOT.get(UPDATE_ID):
-            if STARTED > msg["message"]["date"]:
+            try:
+                message = msg["message"]
+            except KeyError:
+                try:
+                    message = msg["edited_message"]
+                except KeyError:
+                    LOGGER.error('COULDNT GET %s', msg)
+                    continue
+
+            if STARTED > message["date"]:
                 continue
             UPDATE_ID = msg["update_id"]
 
@@ -573,17 +582,12 @@ if __name__ == "__main__":
                 continue
 
             try:
-                uid = msg["message"]["from"]["id"]
-                text = msg["message"]["text"]
-                username = get_username(msg["message"])
+                uid = message["from"]["id"]
+                text = message["text"]
+                username = get_username(message)
             except KeyError:
-                try:
-                    uid = msg["edited_message"]["from"]["id"]
-                    text = msg["edited_message"]["text"]
-                    username = get_username(msg["edited_message"])
-                except KeyError:
-                    LOGGER.error('COULDNT READ %s', msg)
-                    continue
+                LOGGER.error('COULDNT READ %s', message)
+                continue
 
             game = db.Game.select().where(db.Game.owner_id == uid)
             game = game.get() if game.exists() else None
