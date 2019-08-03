@@ -8,3 +8,4 @@ redis
 celery
 requests
 unidecode
+picamera
